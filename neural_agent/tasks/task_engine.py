@@ -40,8 +40,48 @@ class TaskEngine:
             return self._handle_save(description)
         elif "run" in description_lower or "execute" in description_lower:
             return self._handle_run(description)
-        elif "read" in description_lower or "file" in description_lower:
-            return self._handle_read(description)
+        elif "read" in description_lower or "file" in description_lower or "import" in description_lower:
+            import re
+            file_match = re.search(r'(?:read|file|import)\s+(.+)', description, re.IGNORECASE)
+            if file_match:
+                filepath = file_match.group(1).strip()
+                return self.agent.files.read(filepath)
+            return self.agent.files.list()
+        elif "list" in description_lower or "dir" in description_lower or "ls" in description_lower:
+            return self.agent.files.list()
+        elif "delete" in description_lower or "remove" in description_lower:
+            import re
+            file_match = re.search(r'(?:delete|remove)\s+(.+)', description, re.IGNORECASE)
+            if file_match:
+                filepath = file_match.group(1).strip()
+                return self.agent.files.delete(filepath)
+            return "Specify file to delete"
+        elif "copy" in description_lower or "cp" in description_lower:
+            import re
+            match = re.search(r'copy\s+(.+?)\s+(?:to|->)\s+(.+)', description, re.IGNORECASE)
+            if match:
+                src, dst = match.groups()
+                return self.agent.files.copy(src.strip(), dst.strip())
+            return "Usage: copy <source> to <dest>"
+        elif "move" in description_lower or "mv" in description_lower:
+            import re
+            match = re.search(r'move\s+(.+?)\s+(?:to|->)\s+(.+)', description, re.IGNORECASE)
+            if match:
+                src, dst = match.groups()
+                return self.agent.files.move(src.strip(), dst.strip())
+            return "Usage: move <source> to <dest>"
+        elif "mkdir" in description_lower or "create dir" in description_lower:
+            import re
+            dir_match = re.search(r'(?:mkdir|create dir)\s+(.+)', description, re.IGNORECASE)
+            if dir_match:
+                return self.agent.files.set_workdir(dir_match.group(1).strip())
+            return "Usage: mkdir <directory>"
+        elif "info" in description_lower or "stat" in description_lower:
+            import re
+            file_match = re.search(r'(?:info|stat)\s+(.+)', description, re.IGNORECASE)
+            if file_match:
+                return self.agent.files.info(file_match.group(1).strip())
+            return "Specify file for info"
         else:
             return f"Analyzing task '{description}'..."
 

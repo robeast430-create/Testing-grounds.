@@ -4,6 +4,7 @@ from .tasks.task_engine import TaskEngine
 from .interface.chat_interface import ChatInterface
 from .kill_switch import KillSwitch
 from .web.web_crawler import WebCrawler
+from .files.file_manager import FileManager
 import threading
 import time
 
@@ -15,6 +16,7 @@ class NeuralAgent:
         self.interface = ChatInterface(self)
         self.kill_switch = KillSwitch(self)
         self.web = WebCrawler(self)
+        self.files = FileManager(self)
         self.running = True
         self.lock = threading.Lock()
 
