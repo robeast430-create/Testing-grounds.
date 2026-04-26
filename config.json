@@ -1,0 +1,38 @@
+{
+  "agent": {
+    "name": "NeuralAgent",
+    "version": "1.0.0",
+    "max_memory": 10000
+  },
+  "timeouts": {
+    "think": 60,
+    "fetch": 30,
+    "crawl": 300,
+    "search": 30,
+    "task": 300,
+    "chat": 10
+  },
+  "web": {
+    "user_agent": "Mozilla/5.0 (NeuralAgent/1.0)",
+    "max_depth": 3,
+    "max_pages": 10,
+    "timeout": 30
+  },
+  "memory": {
+    "persist": true,
+    "db_path": "./memory_db",
+    "top_k": 5
+  },
+  "logging": {
+    "level": "INFO",
+    "file": "agent.log",
+    "console": true
+  },
+  "security": {
+    "allowed_file_extensions": [
+      ".txt", ".md", ".json", ".yaml", ".yml", ".csv", ".xml",
+      ".py", ".js", ".html", ".css", ".log", ".cfg", ".ini", ".toml", ".env", ".sh", ".bat", ".cmd"
+    ],
+    "workdir": "."
+  }
+}
