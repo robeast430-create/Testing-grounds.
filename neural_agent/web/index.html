@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Neural Agent</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #1a1a2e; color: #eee; height: 100vh; display: flex; flex-direction: column; }
+        header { background: #16213e; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #0f3460; }
+        h1 { font-size: 1.2rem; color: #e94560; }
+        .status { display: flex; gap: 15px; font-size: 0.85rem; }
+        .status span { padding: 4px 10px; background: #0f3460; border-radius: 4px; }
+        .main { flex: 1; display: flex; overflow: hidden; }
+        .sidebar { width: 250px; background: #16213e; padding: 15px; overflow-y: auto; border-right: 1px solid #0f3460; }
+        .sidebar h3 { color: #e94560; margin-bottom: 10px; font-size: 0.9rem; }
+        .sidebar button { width: 100%; padding: 10px; margin-bottom: 8px; background: #0f3460; border: none; color: #eee; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+        .sidebar button:hover { background: #e94560; }
+        .chat-area { flex: 1; display: flex; flex-direction: column; }
+        .messages { flex: 1; overflow-y: auto; padding: 20px; }
+        .message { margin-bottom: 15px; padding: 12px 16px; border-radius: 10px; max-width: 80%; }
+        .message.user { background: #0f3460; margin-left: auto; }
+        .message.agent { background: #16213e; }
+        .message .time { font-size: 0.7rem; color: #888; margin-top: 5px; }
+        .input-area { padding: 15px; background: #16213e; border-top: 1px solid #0f3460; display: flex; gap: 10px; }
+        .input-area input { flex: 1; padding: 12px; background: #0f3460; border: none; border-radius: 8px; color: #eee; font-size: 1rem; }
+        .input-area button { padding: 12px 25px; background: #e94560; border: none; border-radius: 8px; color: white; cursor: pointer; font-weight: bold; }
+        .input-area button:hover { background: #ff6b6b; }
+        .panel { display: none; }
+        .panel.active { display: block; }
+        .panel-content { padding: 15px; }
+        .stat-card { background: #0f3460; padding: 15px; border-radius: 8px; margin-bottom: 10px; }
+        .stat-card h4 { color: #e94560; margin-bottom: 8px; }
+        .stat-card .value { font-size: 1.5rem; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Neural Agent</h1>
+        <div class="status">
+            <span id="memory-count">Memory: 0</span>
+            <span id="task-count">Tasks: 0</span>
+            <span id="uptime">Uptime: 0s</span>
+        </div>
+    </header>
+    <div class="main">
+        <div class="sidebar">
+            <h3>Quick Actions</h3>
+            <button onclick="sendMessage('think what can you do?')">Think</button>
+            <button onclick="sendMessage('recall')">Recall</button>
+            <button onclick="sendMessage('sysinfo')">System Info</button>
+            <button onclick="sendMessage('stats')">Stats</button>
+            <button onclick="sendMessage('list')">List Files</button>
+            <button onclick="sendMessage('jobs')">Jobs</button>
+            <button onclick="sendMessage('schedule')">Schedule</button>
+            <h3 style="margin-top: 20px;">Learn</h3>
+            <button onclick="promptLearn()">Add Memory</button>
+        </div>
+        <div class="chat-area">
+            <div class="messages" id="messages"></div>
+            <div class="input-area">
+                <input type="text" id="input" placeholder="Type a command..." onkeypress="if(event.key==='Enter')send()">
+                <button onclick="send()">Send</button>
+            </div>
+        </div>
+    </div>
+    <script>
+        const API = window.location.port ? `http://localhost:${window.location.port}` : 'http://localhost:8080';
+        let messages = [];
+        
+        function send() {
+            const input = document.getElementById('input');
+            const text = input.value.trim();
+            if (!text) return;
+            addMessage(text, 'user');
+            input.value = '';
+            
+            fetch(`${API}/chat`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: text})
+            }).then(r => r.json()).then(data => {
+                if (data.response) addMessage(data.response, 'agent');
+                updateStats();
+            }).catch(() => {
+                addMessage('Error: Could not connect to agent', 'agent');
+            });
+        }
+        
+        function sendMessage(text) {
+            document.getElementById('input').value = text;
+            send();
+        }
+        
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            div.className = `message ${type}`;
+            div.innerHTML = `<div class="content">${escapeHtml(text)}</div><div class="time">${new Date().toLocaleTimeString()}</div>`;
+            document.getElementById('messages').appendChild(div);
+            document.getElementById('messages').scrollTop = messages.scrollHeight;
+        }
+        
+        function escapeHtml(text) {
+            return text.replace(/\n/g, '<br>');
+        }
+        
+        function updateStats() {
+            fetch(`${API}/stats`).then(r => r.json()).then(data => {
+                document.getElementById('memory-count').textContent = `Memory: ${data.memories_added || 0}`;
+            });
+        }
+        
+        setInterval(() => {
+            fetch(`${API}/sysinfo`).then(r => r.json()).then(data => {
+                document.getElementById('uptime').textContent = `Uptime: ${Math.floor(data.uptime || 0)}s`;
+            });
+        }, 1000);
+        
+        updateStats();
+    </script>
+</body>
+</html>
