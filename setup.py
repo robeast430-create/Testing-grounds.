@@ -39,6 +39,8 @@ setup(
         "beautifulsoup4>=4.11.0",
         "lxml>=4.9.0",
         "psutil>=5.9.0",
+        "qrcode>=7.4.0",
+        "Pillow>=9.0.0",
     ],
     extras_require={
         "dev": [

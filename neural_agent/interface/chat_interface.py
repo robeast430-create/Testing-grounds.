@@ -331,5 +331,137 @@ class ChatInterface:
             self.agent.running = False
             return
         
+        if user_input == "plugins":
+            plugins = self.agent.plugins.list_plugins()
+            if plugins:
+                print("Loaded plugins:")
+                for p in plugins:
+                    print(f"  - {p['name']} v{p['version']}: {p['description']}")
+            else:
+                print("No plugins loaded")
+            return
+        
+        if user_input.startswith("plugin "):
+            parts = user_input[7:].split(maxsplit=1)
+            if len(parts) > 1:
+                plugin_name, args = parts
+                result = self.agent.plugins.execute_plugin(plugin_name, args)
+                print(result)
+            else:
+                print(f"Available plugins: {', '.join(self.agent.plugins.list_plugins().keys())}")
+            return
+        
+        if user_input == "db stats":
+            stats = self.agent.db.get_stats()
+            print("Database Stats:")
+            for k, v in stats.items():
+                print(f"  {k}: {v}")
+            return
+        
+        if user_input.startswith("db search "):
+            query = user_input[10:].strip()
+            results = self.agent.db.search_memories(query)
+            if results:
+                print(f"Found {len(results)} results:")
+                for r in results:
+                    print(f"  - {r['content'][:60]}...")
+            else:
+                print("No results found")
+            return
+        
+        if user_input == "notifications":
+            stats = self.agent.notifications.get_stats()
+            print("Notifications:")
+            print(f"  Total: {stats['total']}")
+            print(f"  Unread: {stats['unread']}")
+            print(f"  Muted: {', '.join(stats['muted']) or 'none'}")
+            return
+        
+        if user_input.startswith("notify "):
+            msg = user_input[7:].strip()
+            self.agent.notifications.info(msg, self.agent.current_user or "user")
+            print(f"Notified: {msg}")
+            return
+        
+        if user_input == "export":
+            filepath = self.agent.export_import.export_all()
+            print(f"Exported to: {filepath}")
+            return
+        
+        if user_input.startswith("export memories"):
+            parts = user_input.split(maxsplit=2)
+            filepath = parts[2] if len(parts) > 2 else "memories_export.json"
+            print(self.agent.export_import.export_memories(filepath))
+            return
+        
+        if user_input.startswith("import "):
+            filepath = user_input[7:].strip()
+            print(self.agent.export_import.import_all(filepath))
+            return
+        
+        if user_input == "prompts":
+            templates = self.agent.prompts.list_templates()
+            print("Available prompts:")
+            for t in templates:
+                print(f"  - {t['name']}: {t['description']}")
+                if t['variables']:
+                    print(f"    Variables: {', '.join(t['variables'])}")
+            return
+        
+        if user_input.startswith("prompt "):
+            parts = user_input[7:].split(maxsplit=1)
+            if len(parts) > 1:
+                name, rest = parts
+                try:
+                    kwargs = dict(item.split("=", 1) for item in rest.split(" --") if "=" in item)
+                    result = self.agent.prompts.render_template(name, **kwargs)
+                    print(result)
+                except:
+                    print("Usage: prompt <name> var1=value --var2=value")
+            else:
+                print(f"Available: {', '.join(self.agent.prompts.list_templates().keys())}")
+            return
+        
+        if user_input.startswith("watch "):
+            path = user_input[6:].strip()
+            result = self.agent.file_watcher.watch(path)
+            print(result)
+            return
+        
+        if user_input == "watching":
+            watched = self.agent.file_watcher.list_watched()
+            if watched:
+                print("Watching:")
+                for w in watched:
+                    print(f"  - {w['path']} (recursive: {w['recursive']})")
+            else:
+                print("Not watching any paths")
+            return
+        
+        if user_input.startswith("unwatch "):
+            path = user_input[8:].strip()
+            print(self.agent.file_watcher.unwatch(path))
+            return
+        
+        if user_input.startswith("api key "):
+            parts = user_input[8:].split(maxsplit=2)
+            if len(parts) > 1:
+                action, key = parts[0], parts[1]
+                if action == "add":
+                    name = parts[2] if len(parts) > 2 else None
+                    print(self.agent.api_keys.add_key(key, name))
+                elif action == "remove":
+                    print(self.agent.api_keys.remove_key(key))
+            else:
+                print("Usage: api key add <service> <key> [name]")
+            return
+        
+        if user_input == "api keys":
+            keys = self.agent.api_keys.list_services()
+            print("API Keys:")
+            for k in keys:
+                print(f"  - {k['service']} ({k['name']}) - {'active' if k['active'] else 'inactive'}")
+            return
+        
         response = self.agent.core.query(user_input)
         print(f"Agent> {response}")

@@ -13,6 +13,12 @@ from .utils.logger import AgentLogger
 from .utils.process_manager import ProcessManager
 from .auth import AuthManager, LoginInterface
 from .auth.command_history import CommandHistory
+from .plugins import PluginManager
+from .database import Database
+from .notifications import NotificationManager
+from .conversation import ConversationManager
+from .tools import APIKeyManager, ExportImportManager, FileWatcher
+from .prompts import PromptManager
 import threading
 import time
 
@@ -33,6 +39,14 @@ class NeuralAgent:
         self.processes = ProcessManager(self)
         self.auth = AuthManager(data_dir)
         self.history = CommandHistory(data_dir)
+        self.db = Database()
+        self.notifications = NotificationManager(self)
+        self.conversations = ConversationManager(self, self.db)
+        self.api_keys = APIKeyManager(data_dir)
+        self.export_import = ExportImportManager(self)
+        self.file_watcher = FileWatcher(self)
+        self.prompts = PromptManager(self)
+        self.plugins = PluginManager(self)
         self.current_user = None
         self.session_token = None
         self.running = True
@@ -43,6 +57,7 @@ class NeuralAgent:
         self.memory.load()
         self.core.initialize()
         self.monitor.increment("queries", -self.monitor._stats["queries"])
+        self.notifications.info("Neural Agent started", "system")
         print("[Neural Agent] Ready.")
         self.interface.start()
 
@@ -51,9 +66,12 @@ class NeuralAgent:
             self.running = False
         print("[Neural Agent] Shutting down...")
         self.scheduler.stop()
+        self.file_watcher.stop()
         self.memory.save()
         self.config.save()
+        self.db.close()
         self.logger.info("Agent shutdown complete")
+        self.notifications.info("Neural Agent stopped", "system")
         print("[Neural Agent] Terminated.")
 
     def can_run(self):
