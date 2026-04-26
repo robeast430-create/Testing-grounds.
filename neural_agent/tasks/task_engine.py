@@ -46,9 +46,25 @@ class TaskEngine:
             return f"Analyzing task '{description}'..."
 
     def _handle_fetch(self, description):
+        import re
+        url_match = re.search(r'https?://[^\s]+', description)
+        if url_match:
+            url = url_match.group()
+            return self.agent.web.summarize_page(url)
         return "Fetch task noted. Would need URL to fetch resources."
 
     def _handle_search(self, description):
+        import re
+        query_match = re.search(r'search ["\']?(.+?)["\']?$', description)
+        if query_match:
+            query = query_match.group(1).strip()
+            results = self.agent.web.search(query, limit=5)
+            return f"Search results for '{query}':\n" + "\n".join(f"- {r['title']}: {r['url']}" for r in results)
+        # Try to do a web search
+        words = description.lower().replace("search", "").replace("find", "").strip()
+        if words:
+            results = self.agent.web.search(words, limit=5)
+            return f"Search results for '{words}':\n" + "\n".join(f"- {r['title']}: {r['url']}" for r in results)
         return "Search task noted. Would search memory first."
 
     def _handle_save(self, description):

@@ -3,6 +3,7 @@ from .memory.memory_bank import MemoryBank
 from .tasks.task_engine import TaskEngine
 from .interface.chat_interface import ChatInterface
 from .kill_switch import KillSwitch
+from .web.web_crawler import WebCrawler
 import threading
 import time
 
@@ -13,6 +14,7 @@ class NeuralAgent:
         self.tasks = TaskEngine(self)
         self.interface = ChatInterface(self)
         self.kill_switch = KillSwitch(self)
+        self.web = WebCrawler(self)
         self.running = True
         self.lock = threading.Lock()
 
