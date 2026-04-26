@@ -463,5 +463,145 @@ class ChatInterface:
                 print(f"  - {k['service']} ({k['name']}) - {'active' if k['active'] else 'inactive'}")
             return
         
+        if user_input == "bluetooth":
+            print(self.agent.bluetooth.status())
+            return
+        
+        if user_input == "bluetooth scan":
+            result = self.agent.bluetooth.scan()
+            print(result)
+            return
+        
+        if user_input == "bluetooth devices":
+            print(self.agent.bluetooth.devices())
+            return
+        
+        if user_input == "bluetooth paired":
+            print(self.agent.bluetooth.paired())
+            return
+        
+        if user_input == "bluetooth connected":
+            print(self.agent.bluetooth.connected())
+            return
+        
+        if user_input.startswith("bluetooth pair "):
+            mac = user_input[14:].strip()
+            print(self.agent.bluetooth.pair(mac))
+            return
+        
+        if user_input.startswith("bluetooth connect "):
+            mac = user_input[17:].strip()
+            print(self.agent.bluetooth.connect(mac))
+            return
+        
+        if user_input.startswith("bluetooth disconnect "):
+            mac = user_input[20:].strip()
+            print(self.agent.bluetooth.disconnect(mac))
+            return
+        
+        if user_input.startswith("bluetooth remove "):
+            mac = user_input[16:].strip()
+            print(self.agent.bluetooth.remove(mac))
+            return
+        
+        if user_input.startswith("bluetooth power "):
+            state = user_input[16:].strip().lower()
+            print(self.agent.bluetooth.power(state == "on"))
+            return
+        
+        if user_input.startswith("bluetooth send "):
+            parts = user_input[14:].split(maxsplit=1)
+            if len(parts) == 2:
+                mac, filepath = parts
+                print(self.agent.bluetooth.send_file(mac, filepath))
+            else:
+                print("Usage: bluetooth send <mac> <filepath>")
+            return
+        
+        if user_input == "voice":
+            status = "Listening" if self.agent.voice.listening else "Not listening"
+            print(f"Voice: {status}")
+            return
+        
+        if user_input == "voice devices":
+            print(self.agent.voice.list_devices())
+            return
+        
+        if user_input.startswith("voice record "):
+            parts = user_input[13:].split()
+            duration = int(parts[0]) if parts else 5
+            output = parts[1] if len(parts) > 1 else "recording.wav"
+            print(self.agent.voice.record(duration, output))
+            return
+        
+        if user_input.startswith("voice play "):
+            filepath = user_input[11:].strip()
+            print(self.agent.voice.play(filepath))
+            return
+        
+        if user_input.startswith("voice speak "):
+            text = user_input[12:].strip()
+            print(self.agent.voice.speak(text))
+            return
+        
+        if user_input == "voice start":
+            print(self.agent.voice.start_listening())
+            return
+        
+        if user_input == "voice stop":
+            print(self.agent.voice.stop_listening())
+            return
+        
+        if user_input == "backup":
+            path = self.agent.backup.create_backup()
+            print(f"Backup created: {path}")
+            return
+        
+        if user_input == "backup list":
+            print(self.agent.backup.list_backups())
+            return
+        
+        if user_input.startswith("backup restore "):
+            name = user_input[15:].strip()
+            print(self.agent.backup.restore(name))
+            return
+        
+        if user_input.startswith("backup delete "):
+            name = user_input[14:].strip()
+            print(self.agent.backup.delete_backup(name))
+            return
+        
+        if user_input == "backup clean":
+            print(self.agent.backup.clean_old_backups())
+            return
+        
+        if user_input == "hostname":
+            print(self.agent.utils.hostname())
+            return
+        
+        if user_input == "ip":
+            print(self.agent.utils.ip_address())
+            return
+        
+        if user_input == "network":
+            print(self.agent.utils.network_status())
+            return
+        
+        if user_input == "disk":
+            print(self.agent.utils.disk_usage())
+            return
+        
+        if user_input == "top":
+            print(self.agent.utils.processes())
+            return
+        
+        if user_input == "battery":
+            print(self.agent.utils.battery())
+            return
+        
+        if user_input == "temp":
+            print(self.agent.utils.temperature())
+            return
+        
         response = self.agent.core.query(user_input)
         print(f"Agent> {response}")

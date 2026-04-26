@@ -19,6 +19,9 @@ from .notifications import NotificationManager
 from .conversation import ConversationManager
 from .tools import APIKeyManager, ExportImportManager, FileWatcher
 from .prompts import PromptManager
+from .bluetooth import BluetoothManager
+from .voice import VoiceManager
+from .utils.system_utils import SystemUtils, BackupManager
 import threading
 import time
 
@@ -47,6 +50,10 @@ class NeuralAgent:
         self.file_watcher = FileWatcher(self)
         self.prompts = PromptManager(self)
         self.plugins = PluginManager(self)
+        self.bluetooth = BluetoothManager(self)
+        self.voice = VoiceManager(self)
+        self.backup = BackupManager(self)
+        self.utils = SystemUtils(self)
         self.current_user = None
         self.session_token = None
         self.running = True
