@@ -31,6 +31,11 @@ from .tools.log_regex_converters import LogAnalyzer, RegexTools, FileConverter, 
 from .monitoring import AlertManager, UptimeMonitor, HealthCheck
 from .productivity import ProjectManager, KanbanBoard
 from .cloud import AWSManager, TerraformManager
+from .simulation.simulation_engine import (
+    SimulationManager, Simulation2D, Simulation3D, Simulation4D,
+    Dimension, SimulationType, Particle, Body, Vector,
+    BlenderInterface, MultiAgentSimulation, FluidSimulation
+)
 import threading
 import time
 
@@ -87,6 +92,7 @@ class NeuralAgent:
         self.health = HealthCheck(self)
         self.projects = ProjectManager()
         self.kanban = KanbanBoard(self.projects)
+        self.simulation = SimulationManager()
         self.current_user = None
         self.session_token = None
         self.running = True

@@ -55,6 +55,31 @@ class APIHandler(BaseHTTPRequestHandler):
                 message = data.get("message", "")
                 response = self.server.agent.core.query(message)
                 self._send_json({"response": response})
+            elif self.path == "/sim/create":
+                name = data.get("name", "default")
+                dim = data.get("dimension", "3d").lower()
+                from neural_agent.simulation import Dimension as SimDim
+                dim_map = {"2d": SimDim.DIM_2D, "3d": SimDim.DIM_3D, "4d": SimDim.DIM_4D}
+                dimension = dim_map.get(dim, SimDim.DIM_3D)
+                sim = self.server.agent.simulation.create_simulation(name, dimension)
+                self._send_json({"status": "ok", "name": name, "dimension": dim})
+            elif self.path == "/sim/step":
+                name = data.get("name", "default")
+                sim = self.server.agent.simulation.get_simulation(name)
+                if sim:
+                    sim.step()
+                    self._send_json({"status": "ok"})
+                else:
+                    self._send_error(404, "Simulation not found")
+            elif self.path == "/sim/render":
+                name = data.get("name", "default")
+                html = self.server.agent.simulation.render(name)
+                self._send_json({"status": "ok", "html": len(html), "content": html[:500]})
+            elif self.path == "/sim/blender":
+                name = data.get("name", "default")
+                output = data.get("output", "/tmp/simulation.png")
+                result = self.server.agent.simulation.export_blender(name, output)
+                self._send_json(result)
             else:
                 self._send_error(404, "Not found")
             return
@@ -91,6 +116,15 @@ class APIHandler(BaseHTTPRequestHandler):
             self._send_json(self.server.agent.scheduler.list())
         elif self.path == "/config":
             self._send_json(json.loads(self.server.agent.config.export()))
+        elif self.path == "/sim/list":
+            sims = self.server.agent.simulation.list_simulations()
+            self._send_json({"simulations": sims})
+        elif self.path == "/sim/status":
+            sims = {}
+            for name in self.server.agent.simulation.list_simulations():
+                sim = self.server.agent.simulation.get_simulation(name)
+                sims[name] = {"type": type(sim).__name__, "time": getattr(sim, 'time', 0)}
+            self._send_json(sims)
         else:
             self._send_error(404, "Not found")
     
