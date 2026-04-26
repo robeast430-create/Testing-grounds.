@@ -4,7 +4,7 @@ An advanced AI agent with persistent memory, autonomous thinking, task execution
 
 ## Runs On
 ```
-Linux • macOS • Windows • Android • iOS • Raspberry Pi • Termux • Any Unix
+Linux • macOS • Windows • Android • Raspberry Pi • Termux • Any Unix
 ```
 
 ## Install
