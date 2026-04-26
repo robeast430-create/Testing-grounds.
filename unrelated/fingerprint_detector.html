@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fingerprint Detector</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #1a1a2e; color: #fff; }
+        .box { background: #16213e; padding: 20px; margin: 10px 0; border-radius: 10px; }
+        h2 { color: #e94560; }
+        .item { padding: 5px 0; border-bottom: 1px solid #333; }
+        .safe { color: #4ade80; }
+        .warn { color: #fbbf24; }
+        .danger { color: #ef4444; }
+        .canvas-result { margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Browser Fingerprint Detector</h1>
+    
+    <div class="box">
+        <h2>Canvas Fingerprint</h2>
+        <div id="canvas-fingerprint" class="item"></div>
+        <canvas id="canvas" width="200" height="50" class="canvas-result"></canvas>
+        <div id="webgl-fingerprint" class="item"></div>
+    </div>
+    
+    <div class="box">
+        <h2>Audio Fingerprint</h2>
+        <div id="audio-fingerprint" class="item"></div>
+    </div>
+    
+    <div class="box">
+        <h2>Font Detection</h2>
+        <div id="fonts" class="item"></div>
+    </div>
+    
+    <div class="box">
+        <h2>Hardware Info</h2>
+        <div id="hardware" class="item"></div>
+    </div>
+    
+    <div class="box">
+        <h2>Browser Info</h2>
+        <div id="browser" class="item"></div>
+    </div>
+    
+    <div class="box">
+        <h2>Privacy Score</h2>
+        <div id="score" class="item"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        ctx.textBaseline = 'top';
+        ctx.font = "14px 'Arial'";
+        ctx.fillStyle = '#f60';
+        ctx.fillRect(125, 1, 62, 20);
+        ctx.fillStyle = '#069';
+        ctx.fillText('Fingerprint 👆', 2, 15);
+        ctx.fillStyle = 'rgba(102, 204, 0, 0.7)';
+        ctx.fillText('Fingerprint 👆', 4, 17);
+        
+        const canvasData = canvas.toDataURL();
+        const canvasHash = btoa(canvasData).substring(0, 50);
+        document.getElementById('canvas-fingerprint').innerHTML = 
+            `Canvas Hash: <span class="warn">${canvasHash}</span>`;
+        
+        try {
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+            const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+            const vendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+            document.getElementById('webgl-fingerprint').innerHTML = 
+                `WebGL Renderer: <span class="warn">${renderer}</span><br>` +
+                `WebGL Vendor: <span class="warn">${vendor}</span>`;
+        } catch(e) {
+            document.getElementById('webgl-fingerprint').innerHTML = 
+                '<span class="safe">WebGL blocked</span>';
+        }
+        
+        const baseFonts = ['monospace', 'sans-serif', 'serif'];
+        const testFonts = ['Arial', 'Verdana', 'Times New Roman', 'Courier New', 'Comic Sans MS'];
+        const detected = [];
+        
+        const testString = 'mmmmmmmmlli';
+        const testSize = '72px';
+        const body = document.body;
+        
+        const canvas2 = document.createElement('canvas');
+        const ctx2 = canvas2.getContext('2d');
+        
+        testFonts.forEach(font => {
+            ctx2.font = `${testSize} ${font}`;
+            const width1 = ctx2.measureText(testString).width;
+            ctx2.font = `${testSize} sans-serif`;
+            const width2 = ctx2.measureText(testString).width;
+            if (width1 !== width2) detected.push(font);
+        });
+        
+        document.getElementById('fonts').innerHTML = 
+            detected.length > 0 
+                ? `Detected: <span class="warn">${detected.join(', ')}</span>`
+                : '<span class="safe">Minimal fonts detected</span>';
+        
+        const hardware = [
+            { name: 'CPU Cores', value: navigator.hardwareConcurrency || 'N/A' },
+            { name: 'Device Memory', value: navigator.deviceMemory ? navigator.deviceMemory + ' GB' : 'N/A' },
+            { name: 'GPU', value: renderer || 'N/A' },
+            { name: 'Screen', value: `${screen.width}x${screen.height}` },
+            { name: 'Color Depth', value: `${screen.colorDepth} bit` },
+            { name: 'Pixel Ratio', value: window.devicePixelRatio || 'N/A' },
+            { name: 'Touch Points', value: navigator.maxTouchPoints || '0' }
+        ];
+        
+        document.getElementById('hardware').innerHTML = hardware.map(h => 
+            `${h.name}: <span class="warn">${h.value}</span>`
+        ).join('<br>');
+        
+        const browser = [
+            { name: 'User Agent', value: navigator.userAgent },
+            { name: 'Language', value: navigator.language },
+            { name: 'Platform', value: navigator.platform },
+            { name: 'Cookies Enabled', value: navigator.cookieEnabled },
+            { name: 'Do Not Track', value: navigator.doNotTrack },
+            { name: 'Online', value: navigator.onLine }
+        ];
+        
+        document.getElementById('browser').innerHTML = browser.map(b => 
+            `${b.name}: <span class="warn">${b.value}</span>`
+        ).join('<br>');
+        
+        let privacyScore = 50;
+        
+        if (canvasData.length > 1000) privacyScore -= 20;
+        if (navigator.hardwareConcurrency > 4) privacyScore -= 10;
+        if (detected.length > 5) privacyScore -= 15;
+        if (screen.width > 1920) privacyScore -= 10;
+        if (renderer) privacyScore -= 15;
+        
+        const scoreClass = privacyScore > 70 ? 'safe' : privacyScore > 40 ? 'warn' : 'danger';
+        document.getElementById('score').innerHTML = 
+            `Privacy Score: <span class="${scoreClass}">${privacyScore}/100</span><br>` +
+            (privacyScore < 50 ? '<span class="danger">Your browser is highly trackable!</span>' : 
+             privacyScore < 70 ? '<span class="warn">Moderate tracking risk</span>' : 
+             '<span class="safe">Good privacy protection</span>');
+    </script>
+</body>
+</html>
