@@ -90,7 +90,7 @@ install_python_deps() {
     echo "[3/8] Installing Python dependencies..."
     
     echo "  Upgrading pip..."
-    python3 -m pip install --upgrade pip setuptools wheel || true
+    python3 -m pip install --break-system-packages --upgrade pip setuptools wheel || true
     
     INSTALLED=0
     FAILED=0
@@ -103,7 +103,7 @@ install_python_deps() {
             [[ -z "$line" ]] && continue
             
             echo -n "    $line... "
-            OUTPUT=$(python3 -m pip install "$line" 2>&1)
+            OUTPUT=$(python3 -m pip install --break-system-packages "$line" 2>&1)
             EXIT=$?
             
             if [ $EXIT -eq 0 ]; then
@@ -143,7 +143,7 @@ install_python_deps() {
     
     for pkg in "${PACKAGES[@]}"; do
         echo -n "    $pkg... "
-        OUTPUT=$(python3 -m pip install "$pkg" 2>&1)
+        OUTPUT=$(python3 -m pip install --break-system-packages "$pkg" 2>&1)
         EXIT=$?
         
         if [ $EXIT -eq 0 ]; then
@@ -219,7 +219,7 @@ install_apk_deps() {
     
     for pkg in kivy buildozer python-for-android; do
         echo -n "  $pkg... "
-        OUTPUT=$(python3 -m pip install "$pkg" 2>&1)
+        OUTPUT=$(python3 -m pip install --break-system-packages "$pkg" 2>&1)
         EXIT=$?
         
         if [ $EXIT -eq 0 ]; then
@@ -238,7 +238,7 @@ install_sim_deps() {
     
     for pkg in pyglet pyopengl trimesh moderngl moderngl-glew; do
         echo -n "  $pkg... "
-        OUTPUT=$(python3 -m pip install "$pkg" 2>&1)
+        OUTPUT=$(python3 -m pip install --break-system-packages "$pkg" 2>&1)
         EXIT=$?
         
         if [ $EXIT -eq 0 ]; then

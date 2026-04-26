@@ -10,11 +10,16 @@ import subprocess
 from pathlib import Path
 
 
-def install_package(pkg):
+def install_package(pkg, use_break_system_packages=False):
     """Install a package and return (success, output)"""
+    cmd = [sys.executable, '-m', 'pip', 'install']
+    if use_break_system_packages or os.environ.get('BREAK_SYSTEM_PACKAGES'):
+        cmd.append('--break-system-packages')
+    cmd.append(pkg)
+    
     try:
         result = subprocess.run(
-            [sys.executable, '-m', 'pip', 'install', pkg],
+            cmd,
             capture_output=True,
             text=True,
             timeout=120
@@ -180,23 +185,25 @@ def get_skip_reason(output):
     if not output:
         return "Unknown error"
     
-    output = output.lower()
+    output_lower = output.lower()
     
-    if 'already satisfied' in output:
+    if 'already satisfied' in output_lower:
         return "Already installed"
-    elif 'could not find' in output or 'not found' in output:
+    elif 'externally-managed' in output_lower:
+        return "Externally managed system (use --break-system-packages)"
+    elif 'could not find' in output_lower or 'not found' in output_lower:
         return "Package not found in PyPI"
-    elif 'requirement already satisfied' in output:
+    elif 'requirement already satisfied' in output_lower:
         return "Already satisfied"
-    elif 'connection' in output or 'timeout' in output or 'network' in output:
+    elif 'connection' in output_lower or 'timeout' in output_lower or 'network' in output_lower:
         return "Network/connection error"
-    elif 'permission' in output or 'sudo' in output or 'root' in output:
+    elif 'permission' in output_lower or 'sudo' in output_lower or 'root' in output_lower:
         return "Permission denied (try sudo)"
-    elif 'version' in output and 'conflict' in output:
+    elif 'version' in output_lower and 'conflict' in output_lower:
         return "Version conflict with existing package"
-    elif 'platform' in output or 'system' in output:
+    elif 'platform' in output_lower or 'system' in output_lower:
         return "Incompatible platform/system"
-    elif 'no module named' in output:
+    elif 'no module named' in output_lower:
         return "Missing system dependency"
     else:
         lines = output.split('\n')
@@ -326,6 +333,7 @@ def finish(install_dir):
 
 
 def main():
+    os.environ['BREAK_SYSTEM_PACKAGES'] = '1'
     install_dir = os.environ.get('NEURAL_AGENT_HOME', os.path.expanduser('~/.neural-agent'))
     
     print("==========================================")
