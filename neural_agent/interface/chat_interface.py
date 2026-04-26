@@ -603,5 +603,166 @@ class ChatInterface:
             print(self.agent.utils.temperature())
             return
         
+        if user_input.startswith("analyze "):
+            filepath = user_input[8:].strip()
+            result = self.agent.code_analyzer.analyze_file(filepath)
+            if isinstance(result, dict):
+                print(f"Analysis of {result.get('file', filepath)}:")
+                print(f"  Language: {result.get('language', 'Unknown')}")
+                print(f"  Lines: {result.get('lines', 'N/A')}")
+                print(f"  Classes: {result.get('classes', 0)}")
+                print(f"  Functions: {result.get('functions', 0)}")
+                if result.get('complexity'):
+                    print(f"  Complexity: {result.get('complexity')}")
+            else:
+                print(result)
+            return
+        
+        if user_input.startswith("issues "):
+            filepath = user_input[7:].strip()
+            issues = self.agent.code_analyzer.find_issues(filepath)
+            if issues:
+                print("Issues found:")
+                for i in issues:
+                    print(f"  [{i['severity']}] {i['message']}")
+            else:
+                print("No issues found")
+            return
+        
+        if user_input.startswith("lint "):
+            filepath = user_input[5:].strip()
+            results = self.agent.linter.lint(filepath)
+            for r in results:
+                print(f"  [{r.get('severity', 'info')}] {r.get('message', '')}")
+            return
+        
+        if user_input.startswith("gen "):
+            parts = user_input[4:].split(maxsplit=1)
+            if len(parts) > 1:
+                template = parts[0]
+                params = parts[1] if len(parts) > 1 else ""
+                print(self.agent.code_generator.generate(template, **{"params": params}))
+            else:
+                templates = self.agent.code_generator.list_templates()
+                print(f"Available templates: {', '.join(templates)}")
+            return
+        
+        if user_input.startswith("genfile "):
+            parts = user_input[8:].split(maxsplit=2)
+            if len(parts) >= 2:
+                filepath, template = parts[0], parts[1]
+                kwargs = {}
+                if len(parts) > 2:
+                    for arg in parts[2].split(" --"):
+                        if "=" in arg:
+                            k, v = arg.split("=", 1)
+                            kwargs[k.strip()] = v.strip()
+                print(self.agent.code_generator.generate_file(filepath, template, **kwargs))
+            else:
+                print("Usage: genfile  <template> [var=value ...]")
+            return
+        
+        if user_input.startswith("gentest "):
+            filepath = user_input[9:].strip()
+            print(self.agent.test_gen.generate_tests(filepath))
+            return
+        
+        if user_input == "deps":
+            deps = self.agent.deps.analyze_dependencies()
+            print("Dependencies:")
+            for lang, dep_list in deps.items():
+                print(f"  {lang}: {len(dep_list) if isinstance(dep_list, list) else 'found'}")
+            return
+        
+        if user_input == "deps outdated":
+            outdated = self.agent.deps.check_outdated()
+            for item in outdated:
+                print(item)
+            return
+        
+        if user_input == "git status":
+            print(self.agent.git.status())
+            return
+        
+        if user_input == "git log":
+            print(self.agent.git.log())
+            return
+        
+        if user_input.startswith("git commit "):
+            message = user_input[11:].strip()
+            print(self.agent.git.commit(message))
+            return
+        
+        if user_input == "git diff":
+            print(self.agent.git.diff())
+            return
+        
+        if user_input.startswith("git add "):
+            files = user_input[8:].strip().split()
+            print(self.agent.git.add(files if files else ["."]))
+            return
+        
+        if user_input == "git branch":
+            print(self.agent.git.branch("list"))
+            return
+        
+        if user_input.startswith("git checkout "):
+            branch = user_input[13:].strip()
+            print(self.agent.git.branch("checkout", branch))
+            return
+        
+        if user_input.startswith("git push"):
+            parts = user_input.split()
+            remote = parts[2] if len(parts) > 2 else "origin"
+            branch = parts[3] if len(parts) > 3 else None
+            print(self.agent.git.push(remote, branch))
+            return
+        
+        if user_input.startswith("git pull"):
+            parts = user_input.split()
+            remote = parts[2] if len(parts) > 2 else "origin"
+            branch = parts[3] if len(parts) > 3 else None
+            print(self.agent.git.pull(remote, branch))
+            return
+        
+        if user_input == "build":
+            info = self.agent.build.get_project_info()
+            print(f"Project type: {info['type']}")
+            result = self.agent.build.build()
+            print(result)
+            return
+        
+        if user_input.startswith("build "):
+            target = user_input[6:].strip()
+            result = self.agent.build.build(target=target)
+            print(result)
+            return
+        
+        if user_input == "build clean":
+            print(self.agent.build.clean())
+            return
+        
+        if user_input == "project info":
+            print(json.dumps(self.agent.build.get_project_info(), indent=2))
+            return
+        
+        if user_input == "docker ps":
+            print(self.agent.containers.list_containers())
+            return
+        
+        if user_input == "docker images":
+            print(self.agent.containers.list_images())
+            return
+        
+        if user_input.startswith("docker start "):
+            name = user_input[13:].strip()
+            print(self.agent.containers.start_container(name))
+            return
+        
+        if user_input.startswith("docker stop "):
+            name = user_input[12:].strip()
+            print(self.agent.containers.stop_container(name))
+            return
+        
         response = self.agent.core.query(user_input)
         print(f"Agent> {response}")

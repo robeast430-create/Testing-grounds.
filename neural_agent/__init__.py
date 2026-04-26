@@ -22,6 +22,8 @@ from .prompts import PromptManager
 from .bluetooth import BluetoothManager
 from .voice import VoiceManager
 from .utils.system_utils import SystemUtils, BackupManager
+from .coding import CodeAnalyzer, CodeGenerator, Linter, DependencyManager, TestGenerator
+from .coding import GitManager, BuildManager, ContainerManager
 import threading
 import time
 
@@ -54,6 +56,14 @@ class NeuralAgent:
         self.voice = VoiceManager(self)
         self.backup = BackupManager(self)
         self.utils = SystemUtils(self)
+        self.code_analyzer = CodeAnalyzer(self)
+        self.code_generator = CodeGenerator(self)
+        self.linter = Linter(self)
+        self.deps = DependencyManager(self)
+        self.test_gen = TestGenerator(self)
+        self.git = GitManager(self)
+        self.build = BuildManager(self)
+        self.containers = ContainerManager(self)
         self.current_user = None
         self.session_token = None
         self.running = True
