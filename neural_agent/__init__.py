@@ -11,11 +11,13 @@ from .utils.system_monitor import SystemMonitor
 from .utils.config_manager import ConfigManager
 from .utils.logger import AgentLogger
 from .utils.process_manager import ProcessManager
+from .auth import AuthManager, LoginInterface
+from .auth.command_history import CommandHistory
 import threading
 import time
 
 class NeuralAgent:
-    def __init__(self, config_file=None):
+    def __init__(self, config_file=None, data_dir="./auth_data"):
         self.memory = MemoryBank()
         self.core = NeuralCore(self.memory)
         self.tasks = TaskEngine(self)
@@ -29,6 +31,10 @@ class NeuralAgent:
         self.config = ConfigManager(self, config_file or "config.json")
         self.logger = AgentLogger()
         self.processes = ProcessManager(self)
+        self.auth = AuthManager(data_dir)
+        self.history = CommandHistory(data_dir)
+        self.current_user = None
+        self.session_token = None
         self.running = True
         self.lock = threading.Lock()
 

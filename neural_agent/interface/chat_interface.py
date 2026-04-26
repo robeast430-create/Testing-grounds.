@@ -1,6 +1,7 @@
 import sys
 import threading
 import re
+import json
 
 class ChatInterface:
     def __init__(self, agent):
@@ -53,6 +54,9 @@ class ChatInterface:
     def process_input(self, user_input):
         self.agent.monitor.increment("queries")
         self.agent.logger.log_query(user_input)
+        
+        if hasattr(self.agent, 'current_user') and self.agent.current_user:
+            self.agent.history.add(self.agent.current_user, user_input)
         
         if user_input.upper() == "QUIT":
             self.agent.shutdown()
@@ -254,6 +258,77 @@ class ChatInterface:
                     print(f"Job not found: {pid}")
             else:
                 print("Usage: killjob <pid>")
+            return
+        
+        if user_input == "history":
+            hist = self.agent.history.get(self.agent.current_user, limit=20)
+            if hist:
+                print("Recent commands:")
+                for i, h in enumerate(hist):
+                    print(f"  {i+1}. {h['command'][:60]}")
+            else:
+                print("No command history")
+            return
+        
+        if user_input.startswith("history search "):
+            query = user_input[15:].strip()
+            results = self.agent.history.search(self.agent.current_user, query)
+            if results:
+                print(f"Found {len(results)} matches:")
+                for r in results:
+                    print(f"  - {r['command'][:60]}")
+            else:
+                print("No matches found")
+            return
+        
+        if user_input == "users":
+            users = self.agent.auth.list_users()
+            print("Users:")
+            for u in users:
+                admin = " (admin)" if u["is_admin"] else ""
+                print(f"  {u['username']}{admin} - last login: {u['last_login'] or 'never'}")
+            return
+        
+        if user_input.startswith("user add "):
+            import shlex
+            parts = shlex.split(user_input[9:])
+            if len(parts) >= 2:
+                username, password = parts[0], parts[1]
+                email = parts[2] if len(parts) > 2 else None
+                success, msg = self.agent.auth.register(username, password, email)
+                print(msg)
+            else:
+                print("Usage: user add <username> <password> [email]")
+            return
+        
+        if user_input.startswith("user delete "):
+            username = user_input[12:].strip()
+            if username == self.agent.current_user:
+                print("Cannot delete yourself")
+                return
+            success, msg = self.agent.auth.delete_user(username)
+            print(msg)
+            return
+        
+        if user_input.startswith("user settings "):
+            parts = user_input[14:].split()
+            if parts:
+                username = parts[0]
+                settings = self.agent.auth.get_user_settings(username)
+                if settings:
+                    print(f"Settings for {username}:")
+                    print(json.dumps(settings, indent=2))
+                else:
+                    print(f"User not found: {username}")
+            else:
+                print("Usage: user settings <username>")
+            return
+        
+        if user_input.startswith("logout"):
+            if self.agent.session_token:
+                self.agent.auth.logout(self.agent.session_token)
+            print("Logged out. Closing session...")
+            self.agent.running = False
             return
         
         response = self.agent.core.query(user_input)
