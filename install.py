@@ -10,27 +10,20 @@ import subprocess
 from pathlib import Path
 
 
-def print_status(msg, ok=True):
-    status = "[OK]" if ok else "[FAIL]"
-    print(f"  {status} {msg}")
-
-
-def run_cmd(cmd, show_error=True, timeout=300):
-    """Run command and return success status"""
+def install_package(pkg):
+    """Install a package and return (success, output)"""
     try:
         result = subprocess.run(
-            cmd if isinstance(cmd, list) else cmd.split(),
+            [sys.executable, '-m', 'pip', 'install', pkg],
             capture_output=True,
             text=True,
-            timeout=timeout
+            timeout=120
         )
-        return result.returncode == 0, result
+        return result.returncode == 0, result.stdout + result.stderr
     except subprocess.TimeoutExpired:
-        return False, None
+        return False, "Timeout"
     except Exception as e:
-        if show_error:
-            print(f"    Error: {e}")
-        return False, None
+        return False, str(e)
 
 
 def check_deps():
@@ -38,10 +31,11 @@ def check_deps():
     print("[1/8] Checking dependencies...")
     
     for cmd in ['python3', 'git', 'pip3', 'curl']:
-        success, _ = run_cmd([cmd, '--version'], show_error=False)
-        print_status(f"{cmd}: installed" if success else f"{cmd}: MISSING")
-        
-        if not success and cmd in ['python3', 'git', 'pip3']:
+        try:
+            subprocess.run([cmd, '--version'], capture_output=True, timeout=5)
+            print(f"  [OK] {cmd}")
+        except:
+            print(f"  [MISSING] {cmd}")
             install_system_deps()
             break
 
@@ -51,31 +45,29 @@ def install_system_deps():
     print("\n  Installing system packages...")
     
     pkg_managers = [
-        ('apt', ['sudo', 'apt-get', 'update']),
-        ('apt', ['sudo', 'apt-get', 'install', '-y', 
-                 'python3', 'python3-pip', 'git', 'curl', 'wget',
-                 'python3-dev', 'build-essential']),
+        ('apt-get', ['sudo', 'apt-get', 'update']),
+        ('apt-get', ['sudo', 'apt-get', 'install', '-y', 
+                     'python3', 'python3-pip', 'git', 'curl', 'wget',
+                     'python3-dev', 'build-essential']),
         ('dnf', ['sudo', 'dnf', 'install', '-y',
                  'python3', 'python3-pip', 'git', 'curl', 'wget',
                  'python3-devel', 'gcc']),
         ('pacman', ['sudo', 'pacman', '-Sy', '--noconfirm',
-                    'python', 'python-pip', 'git', 'curl', 'wget',
-                    'base-devel']),
+                   'python', 'python-pip', 'git', 'curl', 'wget',
+                   'base-devel']),
         ('apk', ['sudo', 'apk', 'add', '--no-cache',
                  'python3', 'py3-pip', 'git', 'curl',
                  'python3-dev', 'musl-dev', 'gcc']),
-    )
+    ]
     
-    for manager, install_cmd in pkg_managers:
+    for manager, cmd in pkg_managers:
         if Path(f'/usr/bin/{manager}').exists():
             print(f"  Using {manager}...")
-            success, _ = run_cmd(install_cmd, timeout=300)
-            if success:
-                print_status("System packages installed")
-                return
-            break
+            subprocess.run(cmd, capture_output=True, timeout=120)
+            print("  [OK] System packages installed")
+            return
     
-    print_status("Could not install system packages automatically", False)
+    print("  [FAIL] Could not install system packages")
 
 
 def download_source(install_dir):
@@ -87,33 +79,27 @@ def download_source(install_dir):
     os.chdir(install_dir)
     
     if (install_dir / '.git').exists():
-        print_status("Pulling latest...")
-        run_cmd(['git', 'pull', 'origin', 'main'], show_error=False)
+        print("  Pulling latest...")
+        subprocess.run(['git', 'pull', 'origin', 'main'], capture_output=True)
     else:
-        print_status("Cloning repository...")
-        success, result = run_cmd([
-            'git', 'clone', '--depth', '1',
-            'https://github.com/robeast430-create/Testing-grounds..git', '.'
-        ], timeout=120)
-        
+        print("  Cloning repository...")
+        success, output = install_package('git')
         if not success:
-            print_status("Git clone failed, trying tarball...", False)
-            run_cmd([
-                'curl', '-fsSL',
-                'https://github.com/robeast430-create/Testing-grounds./archive/main.tar.gz',
-                '-o', '/tmp/neural.tar.gz'
-            ], timeout=60)
-            run_cmd([
-                'tar', '-xzf', '/tmp/neural.tar.gz',
-                '-C', str(install_dir), '--strip-components=1'
-            ], timeout=60)
+            print("  Git not available, trying tarball...")
+        
+        result = subprocess.run([
+            'curl', '-fsSL',
+            'https://github.com/robeast430-create/Testing-grounds./archive/main.tar.gz',
+            '-o', '/tmp/neural.tar.gz'
+        ], capture_output=True, timeout=60)
+        
+        subprocess.run([
+            'tar', '-xzf', '/tmp/neural.tar.gz',
+            '-C', str(install_dir), '--strip-components=1'
+        ], capture_output=True, timeout=60)
     
     file_count = len(list(install_dir.rglob('*')))
-    print_status(f"Source downloaded ({file_count} files)")
-    
-    dirs = [d.name for d in install_dir.iterdir() if d.is_dir()][:10]
-    for d in dirs:
-        print(f"    - {d}/")
+    print(f"  [OK] Source downloaded ({file_count} files)")
 
 
 def install_python_deps(install_dir):
@@ -123,34 +109,32 @@ def install_python_deps(install_dir):
     install_dir = Path(install_dir)
     
     print("  Upgrading pip...")
-    run_cmd([sys.executable, '-m', 'pip', 'install', '--upgrade', 'pip', 'setuptools', 'wheel'])
+    install_package('pip')
+    install_package('setuptools')
+    install_package('wheel')
     
-    success_count = 0
-    fail_count = 0
+    installed = 0
+    failed = 0
     
     if (install_dir / 'requirements.txt').exists():
         print("\n  Installing from requirements.txt...")
-        success, result = run_cmd([
-            sys.executable, '-m', 'pip', 'install', '-r', str(install_dir / 'requirements.txt')
-        ], timeout=600)
-        
-        if success:
-            print_status("requirements.txt installed")
-            success_count += 1
-        else:
-            print_status("requirements.txt failed", False)
-            
-            print("  Installing packages individually...")
-            with open(install_dir / 'requirements.txt') as f:
-                for line in f:
-                    line = line.strip()
-                    if not line or line.startswith('#'):
-                        continue
-                    success, _ = run_cmd([sys.executable, '-m', 'pip', 'install', line], timeout=120)
-                    if success:
-                        success_count += 1
-                    else:
-                        fail_count += 1
+        with open(install_dir / 'requirements.txt') as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith('#'):
+                    continue
+                
+                print(f"    {line}... ", end='', flush=True)
+                success, output = install_package(line)
+                
+                if success:
+                    print("OK")
+                    installed += 1
+                else:
+                    print("SKIP")
+                    reason = get_skip_reason(output)
+                    print(f"      Reason: {reason}")
+                    failed += 1
     
     print("\n  Installing core packages...")
     
@@ -176,16 +160,50 @@ def install_python_deps(install_dir):
     ]
     
     for pkg in packages:
-        success, _ = run_cmd([sys.executable, '-m', 'pip', 'install', pkg], timeout=180)
+        print(f"    {pkg}... ", end='', flush=True)
+        success, output = install_package(pkg)
+        
         if success:
-            print_status(pkg)
-            success_count += 1
+            print("OK")
+            installed += 1
         else:
-            print_status(f"{pkg}: skipped", False)
-            fail_count += 1
+            print("SKIP")
+            reason = get_skip_reason(output)
+            print(f"      Reason: {reason}")
+            failed += 1
     
-    print(f"\n  Installed: {success_count}, Skipped: {fail_count}")
-    print_status("Python dependencies complete")
+    print(f"\n  Summary: Installed={installed} Failed={failed}")
+
+
+def get_skip_reason(output):
+    """Extract useful error message from pip output"""
+    if not output:
+        return "Unknown error"
+    
+    output = output.lower()
+    
+    if 'already satisfied' in output:
+        return "Already installed"
+    elif 'could not find' in output or 'not found' in output:
+        return "Package not found in PyPI"
+    elif 'requirement already satisfied' in output:
+        return "Already satisfied"
+    elif 'connection' in output or 'timeout' in output or 'network' in output:
+        return "Network/connection error"
+    elif 'permission' in output or 'sudo' in output or 'root' in output:
+        return "Permission denied (try sudo)"
+    elif 'version' in output and 'conflict' in output:
+        return "Version conflict with existing package"
+    elif 'platform' in output or 'system' in output:
+        return "Incompatible platform/system"
+    elif 'no module named' in output:
+        return "Missing system dependency"
+    else:
+        lines = output.split('\n')
+        for line in lines:
+            if 'error' in line.lower() or 'failed' in line.lower():
+                return line.strip()[:100]
+        return output.split('\n')[-1].strip()[:100] if output else "Unknown"
 
 
 def install_files(install_dir):
@@ -200,15 +218,15 @@ def install_files(install_dir):
     bin_dir = Path('/usr/local/bin')
     bin_dir.mkdir(parents=True, exist_ok=True)
     
-    neural_script = f'''#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+    neural_script = '''#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$(dirname "$SCRIPT_DIR")/../.."
 cd "$INSTALL_DIR"
 exec python3 neural_agent/cli.py "$@"
 '''
     
-    linai_script = f'''#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "${{BASH_SOURCE[0]}}")" && pwd)"
+    linai_script = '''#!/bin/bash
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INSTALL_DIR="$(dirname "$SCRIPT_DIR")/../.."
 cd "$INSTALL_DIR"
 exec python3 linai.py "$@"
@@ -216,11 +234,11 @@ exec python3 linai.py "$@"
     
     (bin_dir / 'neural-agent').write_text(neural_script)
     (bin_dir / 'neural-agent').chmod(0o755)
-    print_status("/usr/local/bin/neural-agent")
+    print("  [OK] /usr/local/bin/neural-agent")
     
     (bin_dir / 'linai').write_text(linai_script)
     (bin_dir / 'linai').chmod(0o755)
-    print_status("/usr/local/bin/linai")
+    print("  [OK] /usr/local/bin/linai")
 
 
 def configure(install_dir):
@@ -245,20 +263,26 @@ def configure(install_dir):
     "security": {"require_auth": true, "session_timeout": 3600}
 }
 ''')
-        print_status("config.json created")
+        print("  [OK] config.json created")
     
-    print_status("Configuration complete")
+    print("  [OK] Configuration complete")
 
 
 def install_apk_deps():
     """APK build dependencies"""
-    print("\n[6/8] Installing APK dependencies...")
+    print("\n[6/8] Installing APK build dependencies...")
     
     for pkg in ['kivy', 'buildozer', 'python-for-android']:
-        success, _ = run_cmd([sys.executable, '-m', 'pip', 'install', pkg], timeout=300)
-        print_status(pkg if success else f"{pkg}: skipped")
+        print(f"  {pkg}... ", end='', flush=True)
+        success, output = install_package(pkg)
+        
+        if success:
+            print("OK")
+        else:
+            print("SKIP")
+            print(f"      Reason: {get_skip_reason(output)}")
     
-    print_status("APK dependencies complete")
+    print("  [OK] APK dependencies done")
 
 
 def install_sim_deps():
@@ -266,10 +290,16 @@ def install_sim_deps():
     print("\n[7/8] Installing simulation dependencies...")
     
     for pkg in ['pyglet', 'pyopengl', 'trimesh', 'moderngl', 'moderngl-glew']:
-        success, _ = run_cmd([sys.executable, '-m', 'pip', 'install', pkg], timeout=180)
-        print_status(pkg if success else f"{pkg}: skipped")
+        print(f"  {pkg}... ", end='', flush=True)
+        success, output = install_package(pkg)
+        
+        if success:
+            print("OK")
+        else:
+            print("SKIP")
+            print(f"      Reason: {get_skip_reason(output)}")
     
-    print_status("Simulation dependencies complete")
+    print("  [OK] Simulation dependencies done")
 
 
 def finish(install_dir):

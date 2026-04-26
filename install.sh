@@ -84,30 +84,40 @@ download_source() {
     
     FILE_COUNT=$(find . -type f | wc -l)
     echo "  Files installed: $FILE_COUNT"
-    echo "  Key directories:"
-    ls -d */ 2>/dev/null | head -10 | sed 's/^/    /'
 }
 
 install_python_deps() {
     echo "[3/8] Installing Python dependencies..."
     
     echo "  Upgrading pip..."
-    python3 -m pip install --upgrade pip setuptools wheel --quiet || \
     python3 -m pip install --upgrade pip setuptools wheel || true
     
+    INSTALLED=0
+    FAILED=0
+    
     if [ -f "requirements.txt" ]; then
+        echo ""
         echo "  Installing from requirements.txt..."
-        python3 -m pip install -r requirements.txt || {
-            echo "  requirements.txt failed, installing individually..."
-            while IFS= read -r line; do
-                [[ "$line" =~ ^# ]] && continue
-                [[ -z "$line" ]] && continue
-                echo "    Installing: $line"
-                python3 -m pip install "$line" || true
-            done < requirements.txt
-        }
+        while IFS= read -r line; do
+            [[ "$line" =~ ^# ]] && continue
+            [[ -z "$line" ]] && continue
+            
+            echo -n "    $line... "
+            OUTPUT=$(python3 -m pip install "$line" 2>&1)
+            EXIT=$?
+            
+            if [ $EXIT -eq 0 ]; then
+                echo "OK"
+                ((INSTALLED++))
+            else
+                echo "SKIP"
+                echo "      Reason: ${OUTPUT:0:200}"
+                ((FAILED++))
+            fi
+        done < requirements.txt
     fi
     
+    echo ""
     echo "  Installing core packages..."
     
     PACKAGES=(
@@ -128,29 +138,26 @@ install_python_deps() {
         faiss-cpu faiss-gpu tqdm accelerate safetensors
         tokenizers pyglet pyopengl trimesh moderngl
         kivy buildozer python-for-android
-        pyttsx3 gtts
-        SpeechRecognition
+        pyttsx3 gtts SpeechRecognition
     )
-    
-    FAILED=()
     
     for pkg in "${PACKAGES[@]}"; do
         echo -n "    $pkg... "
-        if python3 -m pip install "$pkg" 2>/dev/null; then
+        OUTPUT=$(python3 -m pip install "$pkg" 2>&1)
+        EXIT=$?
+        
+        if [ $EXIT -eq 0 ]; then
             echo "OK"
+            ((INSTALLED++))
         else
-            echo "FAIL"
-            FAILED+=("$pkg")
+            echo "SKIP"
+            echo "      Reason: ${OUTPUT:0:200}"
+            ((FAILED++))
         fi
     done
     
-    if [ ${#FAILED[@]} -gt 0 ]; then
-        echo ""
-        echo "  Failed packages: ${FAILED[*]}"
-        echo "  (These may require system dependencies or be optional)"
-    fi
-    
-    echo "  [OK] Python packages complete"
+    echo ""
+    echo "  Summary: Installed=$INSTALLED Failed=$FAILED"
 }
 
 install_files() {
@@ -212,10 +219,18 @@ install_apk_deps() {
     
     for pkg in kivy buildozer python-for-android; do
         echo -n "  $pkg... "
-        python3 -m pip install "$pkg" 2>/dev/null && echo "OK" || echo "SKIP"
+        OUTPUT=$(python3 -m pip install "$pkg" 2>&1)
+        EXIT=$?
+        
+        if [ $EXIT -eq 0 ]; then
+            echo "OK"
+        else
+            echo "SKIP"
+            echo "      Reason: ${OUTPUT:0:200}"
+        fi
     done
     
-    echo "  [OK] APK dependencies complete"
+    echo "  [OK] APK dependencies done"
 }
 
 install_sim_deps() {
@@ -223,10 +238,18 @@ install_sim_deps() {
     
     for pkg in pyglet pyopengl trimesh moderngl moderngl-glew; do
         echo -n "  $pkg... "
-        python3 -m pip install "$pkg" 2>/dev/null && echo "OK" || echo "SKIP"
+        OUTPUT=$(python3 -m pip install "$pkg" 2>&1)
+        EXIT=$?
+        
+        if [ $EXIT -eq 0 ]; then
+            echo "OK"
+        else
+            echo "SKIP"
+            echo "      Reason: ${OUTPUT:0:200}"
+        fi
     done
     
-    echo "  [OK] Simulation dependencies complete"
+    echo "  [OK] Simulation dependencies done"
 }
 
 finish() {
