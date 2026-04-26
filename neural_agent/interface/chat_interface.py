@@ -764,5 +764,294 @@ class ChatInterface:
             print(self.agent.containers.stop_container(name))
             return
         
+        if user_input.startswith("ping "):
+            host = user_input[5:].strip()
+            print(self.agent.network.ping(host))
+            return
+        
+        if user_input.startswith("nslookup "):
+            host = user_input[9:].strip()
+            print(self.agent.network.nslookup(host))
+            return
+        
+        if user_input.startswith("dig "):
+            parts = user_input[4:].split()
+            domain = parts[0]
+            record = parts[1] if len(parts) > 1 else "A"
+            print(self.agent.network.dig(domain, record))
+            return
+        
+        if user_input.startswith("scan "):
+            host = user_input[5:].strip()
+            results = self.agent.scanner.scan(host)
+            print("Open ports:")
+            for r in results:
+                print(f"  {r['port']} - {r['service']}")
+            return
+        
+        if user_input.startswith("ssl "):
+            host = user_input[4:].strip()
+            result = self.agent.ssl.check_ssl(host)
+            if isinstance(result, dict):
+                print(f"SSL for {host}:")
+                print(f"  Valid: {result.get('valid')}")
+                print(f"  Expires: {result.get('expires')}")
+                print(f"  Days left: {result.get('days_left')}")
+            else:
+                print(result)
+            return
+        
+        if user_input.startswith("ipinfo"):
+            ip = user_input[7:].strip() if len(user_input) > 7 else None
+            print(self.agent.network.ip_info(ip))
+            return
+        
+        if user_input.startswith("hash "):
+            parts = user_input[5:].split(maxsplit=1)
+            if len(parts) > 1:
+                algo = parts[0]
+                text = parts[1]
+                print(self.agent.security.hash_string(text, algo))
+            else:
+                print("Usage: hash <algorithm> <text>")
+            return
+        
+        if user_input.startswith("encode "):
+            parts = user_input[7:].split(maxsplit=1)
+            if len(parts) > 1:
+                method = parts[0]
+                text = parts[1]
+                if method == "base64":
+                    print(self.agent.security.encode_base64(text))
+                elif method == "hex":
+                    print(self.agent.security.encode_hex(text))
+                elif method == "url":
+                    print(self.agent.security.url_encode(text))
+                else:
+                    print(f"Unknown encoding: {method}")
+            return
+        
+        if user_input.startswith("decode "):
+            parts = user_input[7:].split(maxsplit=1)
+            if len(parts) > 1:
+                method = parts[0]
+                text = parts[1]
+                if method == "base64":
+                    print(self.agent.security.decode_base64(text))
+                elif method == "hex":
+                    print(self.agent.security.decode_hex(text))
+                elif method == "url":
+                    print(self.agent.security.url_decode(text))
+                else:
+                    print(f"Unknown decoding: {method}")
+            return
+        
+        if user_input == "passgen":
+            print(self.agent.security.generate_password())
+            return
+        
+        if user_input.startswith("passgen "):
+            length = int(user_input[8:].strip()) if user_input[8:].strip().isdigit() else 16
+            print(self.agent.security.generate_password(length))
+            return
+        
+        if user_input.startswith("grep "):
+            parts = user_input[5:].split(maxsplit=1)
+            if len(parts) > 1:
+                filepath, pattern = parts
+                results = self.agent.logs.grep(filepath, pattern)
+                for r in results[:20]:
+                    print(f"  {r['line']}: {r['content'][:100]}")
+            else:
+                print("Usage: grep  <pattern>")
+            return
+        
+        if user_input.startswith("log stats "):
+            filepath = user_input[10:].strip()
+            print(json.dumps(self.agent.logs.stats(filepath), indent=2))
+            return
+        
+        if user_input.startswith("log analyze "):
+            filepath = user_input[12:].strip()
+            result = self.agent.logs.analyze(filepath)
+            print(f"Total lines: {result.get('total_lines')}")
+            print("By level:", result.get('by_level'))
+            print(f"Errors: {len(result.get('errors', []))}")
+            return
+        
+        if user_input.startswith("regex "):
+            parts = user_input[6:].split(maxsplit=1)
+            if len(parts) > 1:
+                pattern = parts[0]
+                text = parts[1]
+                result = self.agent.regex.test_pattern(pattern, text)
+                print(f"Valid: {result.get('valid')}")
+                if result.get('matches'):
+                    print(f"Matches: {result.get('matches')}")
+            else:
+                print("Available patterns:", ", ".join(self.agent.regex.named_patterns()))
+            return
+        
+        if user_input.startswith("extract "):
+            parts = user_input[8:].split(maxsplit=1)
+            if len(parts) > 1:
+                pattern_type = parts[0]
+                text = parts[1]
+                results = self.agent.regex.extract(pattern_type, text)
+                print(f"Found: {results}")
+            return
+        
+        if user_input.startswith("convert csv2json "):
+            parts = user_input[15:].split()
+            if len(parts) > 1:
+                csv_path, json_path = parts[0], parts[1]
+                print(self.agent.converter.csv_to_json(csv_path)[:500])
+            return
+        
+        if user_input.startswith("convert json2csv "):
+            parts = user_input[16:].split()
+            if len(parts) > 1:
+                json_path, csv_path = parts[0], parts[1]
+                print(self.agent.converter.json_to_csv(json_path, csv_path))
+            return
+        
+        if user_input.startswith("img resize "):
+            parts = user_input[11:].split()
+            if len(parts) > 3:
+                input_path, output_path, w, h = parts[0], parts[1], int(parts[2]), int(parts[3])
+                print(self.agent.images.resize(input_path, output_path, w, h))
+            return
+        
+        if user_input.startswith("img info "):
+            filepath = user_input[9:].strip()
+            info = self.agent.images.get_info(filepath)
+            print(json.dumps(info, indent=2))
+            return
+        
+        if user_input == "projects":
+            projects = self.agent.projects.list_projects()
+            if projects:
+                print("Projects:")
+                for p in projects:
+                    print(f"  [{p['id']}] {p['name']} - {p['task_count']} tasks")
+            else:
+                print("No projects")
+            return
+        
+        if user_input.startswith("project create "):
+            name = user_input[15:].strip()
+            project = self.agent.projects.create_project(name)
+            print(f"Created project: {project.id}")
+            return
+        
+        if user_input.startswith("project tasks "):
+            parts = user_input[14:].split(maxsplit=1)
+            if parts:
+                project_id = parts[0]
+                status = parts[1] if len(parts) > 1 else None
+                tasks = self.agent.projects.list_tasks(project_id, status=status)
+                print(f"Tasks: {len(tasks)}")
+                for t in tasks:
+                    print(f"  [{t['status']}] {t['title']} ({t['priority']})")
+            return
+        
+        if user_input.startswith("project task add "):
+            parts = user_input[16:].split(maxsplit=2)
+            if len(parts) > 1:
+                project_id, title = parts[0], parts[1]
+                priority = parts[2] if len(parts) > 2 else "medium"
+                task = self.agent.projects.create_task(project_id, title, priority=priority)
+                if isinstance(task, str):
+                    print(task)
+                else:
+                    print(f"Added task: {task.id}")
+            return
+        
+        if user_input.startswith("project task status "):
+            parts = user_input[19:].split()
+            if len(parts) > 2:
+                project_id, task_id, status = parts[0], parts[1], parts[2]
+                print(self.agent.projects.update_task(project_id, task_id, status=status))
+            return
+        
+        if user_input.startswith("project stats "):
+            project_id = user_input[14:].strip()
+            stats = self.agent.projects.get_stats(project_id)
+            print(json.dumps(stats, indent=2))
+            return
+        
+        if user_input == "kanban":
+            projects = self.agent.projects.list_projects()
+            if projects:
+                print(f"Kanban board for: {projects[0]['id']}")
+            return
+        
+        if user_input == "alerts":
+            alerts = self.agent.alerts.list_alerts()
+            if alerts:
+                print("Active alerts:")
+                for a in alerts:
+                    triggered = "TRIGGERED" if a["triggered"] else "OK"
+                    print(f"  [{triggered}] {a['name']}: {a['condition']}")
+            else:
+                print("No alerts configured")
+            return
+        
+        if user_input.startswith("alert add "):
+            parts = user_input[10:].split()
+            if len(parts) >= 3:
+                name, condition, threshold = parts[0], parts[1], float(parts[2])
+                message = " ".join(parts[3:]) if len(parts) > 3 else f"{name} threshold exceeded"
+                self.agent.alerts.add_alert(name, condition, threshold, message)
+                print(f"Alert added: {name}")
+            return
+        
+        if user_input.startswith("uptime check "):
+            url = user_input[12:].strip()
+            result = self.agent.uptime.check(url)
+            print(f"{url}: {'UP' if result.get('up') else 'DOWN'} (latency: {result.get('latency_ms')}ms)")
+            return
+        
+        if user_input.startswith("uptime add "):
+            url = user_input[11:].strip()
+            print(self.agent.uptime.add_url(url))
+            return
+        
+        if user_input == "uptime status":
+            stats = self.agent.uptime.get_stats()
+            print(json.dumps(stats, indent=2))
+            return
+        
+        if user_input == "health":
+            status = self.agent.health.status()
+            print(f"Health: {'OK' if status['healthy'] else 'ISSUES'}")
+            print(f"Passed: {status['passed']}/{status['total']}")
+            return
+        
+        if user_input == "cache":
+            keys = self.agent.cache.list_keys()
+            print(f"Cached: {len(keys)} entries")
+            for k in keys[:10]:
+                print(f"  {k}")
+            return
+        
+        if user_input.startswith("cache get "):
+            key = user_input[9:].strip()
+            value = self.agent.cache.get(key)
+            print(json.dumps(value, indent=2, default=str) if value else "Not found")
+            return
+        
+        if user_input.startswith("cache set "):
+            parts = user_input[9:].split(maxsplit=1)
+            if len(parts) > 1:
+                key, value = parts[0], parts[1]
+                self.agent.cache.set(key, value)
+                print(f"Cached: {key}")
+            return
+        
+        if user_input == "cache clear":
+            print(self.agent.cache.clear())
+            return
+        
         response = self.agent.core.query(user_input)
         print(f"Agent> {response}")

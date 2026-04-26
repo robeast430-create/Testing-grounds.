@@ -24,6 +24,13 @@ from .voice import VoiceManager
 from .utils.system_utils import SystemUtils, BackupManager
 from .coding import CodeAnalyzer, CodeGenerator, Linter, DependencyManager, TestGenerator
 from .coding import GitManager, BuildManager, ContainerManager
+from .database.db_managers import SQLManager, QueryBuilder, CacheManager
+from .network import HTTPClient, RESTClient, NetworkTools, SecurityTools, PortScanner
+from .security.network_tools import SSLChecker
+from .tools.log_regex_converters import LogAnalyzer, RegexTools, FileConverter, ImageProcessor
+from .monitoring import AlertManager, UptimeMonitor, HealthCheck
+from .productivity import ProjectManager, KanbanBoard
+from .cloud import AWSManager, TerraformManager
 import threading
 import time
 
@@ -64,6 +71,22 @@ class NeuralAgent:
         self.git = GitManager(self)
         self.build = BuildManager(self)
         self.containers = ContainerManager(self)
+        self.sql = SQLManager()
+        self.cache = CacheManager()
+        self.http = HTTPClient()
+        self.network = NetworkTools()
+        self.security = SecurityTools()
+        self.scanner = PortScanner()
+        self.ssl = SSLChecker()
+        self.logs = LogAnalyzer(self)
+        self.regex = RegexTools()
+        self.converter = FileConverter()
+        self.images = ImageProcessor()
+        self.alerts = AlertManager(self)
+        self.uptime = UptimeMonitor()
+        self.health = HealthCheck(self)
+        self.projects = ProjectManager()
+        self.kanban = KanbanBoard(self.projects)
         self.current_user = None
         self.session_token = None
         self.running = True
