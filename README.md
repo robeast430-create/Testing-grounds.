@@ -5,19 +5,33 @@ An advanced AI agent with persistent memory, autonomous thinking, task execution
 ## Install
 
 ```bash
-pip install -r requirements.txt
+curl -fsSL https://raw.githubusercontent.com/robeast430-create/Testing-grounds./main/install.sh | bash
 ```
 
 ## Run
 
 ```bash
-python -m neural_agent.main
+neural-agent start
+# or for terminal UI
+linai
 ```
 
-## Usage
+## Features
 
-- Chat with the agent
-- Feed it information with `learn <info>`
-- Give it tasks with `do <task>`
-- Kill it with `KILL` (activates kill switch)
-- Exit with `quit`
+- **Memory**: Persistent semantic memory with recall
+- **Thinking**: Autonomous reasoning and problem solving
+- **Tasks**: Background task execution
+- **Simulations**: 2D/3D/4D physics simulations
+- **APK Build**: Package as Android app
+- **Kill Switch**: Emergency shutdown
+- **Web UI**: Dashboard at http://localhost:8080
+
+## Commands
+
+```bash
+neural-agent --web          # Start with web dashboard
+neural-agent user add admin password  # Create user
+neural-agent sim create mysim 3d       # Create 3D simulation
+neural-agent apk all                  # Build APK
+linai                               # Terminal UI
+```
