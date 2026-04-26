@@ -1,108 +1,64 @@
 #!/bin/bash
 #
 # Neural Agent Installer for Linux
-# Install with: curl -fsSL https://raw.githubusercontent.com/robeast430-create/Testing-grounds./main/install.sh | bash
+# Install: curl -fsSL https://raw.githubusercontent.com/robeast430-create/Testing-grounds./main/install.sh | bash
 #
 
 set -e
 
 INSTALL_DIR="${NEURAL_AGENT_HOME:-$HOME/.neural-agent}"
 PREFIX="/usr/local"
-MODEL_MARKER="# Neural Agent"
 
-parse_args() {
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            --dir)
-                INSTALL_DIR="$2"
-                shift 2
-                ;;
-            --uninstall)
-                uninstall
-                exit 0
-                ;;
-            --help)
-                show_help
-                exit 0
-                ;;
-            *)
-                shift
-                ;;
-        esac
-    done
-}
-
-show_help() {
-    cat << EOF
-Neural Agent Installer
-
-Usage: curl -fsSL <url> | bash [options]
-   Or: bash install.sh [options]
-
-Options:
-    --dir DIR        Installation directory (default: ~/.neural-agent)
-    --uninstall      Remove Neural Agent
-    --help           Show this help
-
-Install:
-    curl -fsSL https://.../install.sh | bash
-EOF
-}
+echo "=========================================="
+echo "  Neural Agent Installer v1.0"
+echo "=========================================="
+echo ""
 
 check_deps() {
     echo "[1/8] Checking dependencies..."
-    
-    local missing=()
     
     for cmd in python3 git pip3 curl; do
         if command -v "$cmd" &> /dev/null; then
             echo "  [OK] $cmd"
         else
-            echo "  [MISSING] $cmd"
-            missing+=("$cmd")
+            echo "  [MISSING] $cmd - installing..."
+            MISSING=1
         fi
     done
     
-    if [ ${#missing[@]} -gt 0 ]; then
-        echo ""
-        echo "  Installing missing dependencies..."
+    if [ -n "$MISSING" ]; then
         install_system_deps
     fi
-    
-    echo "  [OK] Dependencies satisfied"
 }
 
 install_system_deps() {
+    echo "  Installing system packages..."
+    
     if command -v apt-get &> /dev/null; then
-        echo "  Using apt..."
         sudo apt-get update
-        sudo apt-get install -y python3 python3-pip git curl wget
+        sudo apt-get install -y python3 python3-pip git curl wget python3-dev build-essential
         
     elif command -v dnf &> /dev/null; then
-        echo "  Using dnf..."
-        sudo dnf install -y python3 python3-pip git curl wget
+        sudo dnf install -y python3 python3-pip git curl wget python3-devel gcc
         
     elif command -v pacman &> /dev/null; then
-        echo "  Using pacman..."
-        sudo pacman -Sy --noconfirm python python-pip git curl wget
+        sudo pacman -Sy --noconfirm python python-pip git curl wget base-devel
         
     elif command -v apk &> /dev/null; then
-        echo "  Using apk..."
-        sudo apk add --no-cache python3 py3-pip git curl
+        sudo apk add --no-cache python3 py3-pip git curl wget python3-dev musl-dev gcc
         
     elif command -v zypper &> /dev/null; then
-        echo "  Using zypper..."
-        sudo zypper install -y python3 python3-pip git curl
+        sudo zypper install -y python3 python3-pip git curl wget python3-devel gcc
         
     elif command -v yum &> /dev/null; then
-        echo "  Using yum..."
-        sudo yum install -y python3 python3-pip git curl
+        sudo yum install -y python3 python3-pip git curl wget python3-devel gcc
         
     else
-        echo "  ERROR: Cannot detect package manager"
-        echo "  Please install: python3, python3-pip, git, curl manually"
+        echo "  ERROR: Cannot find package manager"
         exit 1
     fi
+    
+    echo "  [OK] System packages installed"
 }
 
 download_source() {
@@ -111,15 +67,13 @@ download_source() {
     mkdir -p "$INSTALL_DIR"
     cd "$INSTALL_DIR"
     
-    REPO_URL="https://github.com/robeast430-create/Testing-grounds..git"
-    
     if [ -d ".git" ]; then
         echo "  Pulling latest..."
-        git pull origin main 2>/dev/null || git pull origin master 2>/dev/null
+        git pull origin main 2>/dev/null || git pull origin master 2>/dev/null || true
     else
         echo "  Cloning repository..."
-        if ! git clone --depth 1 "$REPO_URL" . 2>/dev/null; then
-            echo "  Git clone failed, trying tarball..."
+        if ! git clone --depth 1 "https://github.com/robeast430-create/Testing-grounds..git" .; then
+            echo "  Git failed, downloading tarball..."
             curl -fsSL "https://github.com/robeast430-create/Testing-grounds./archive/main.tar.gz" -o /tmp/neural.tar.gz
             tar -xzf /tmp/neural.tar.gz -C "$INSTALL_DIR" --strip-components=1
             rm -f /tmp/neural.tar.gz
@@ -127,53 +81,76 @@ download_source() {
     fi
     
     echo "  [OK] Source downloaded"
-    echo "  Files installed:"
-    find . -name "*.py" -type f | head -20 | while read f; do echo "    $f"; done
-    py_count=$(find . -name "*.py" -type f | wc -l)
-    echo "    ... and $py_count more Python files"
+    
+    FILE_COUNT=$(find . -type f | wc -l)
+    echo "  Files installed: $FILE_COUNT"
+    echo "  Key directories:"
+    ls -d */ 2>/dev/null | head -10 | sed 's/^/    /'
 }
 
 install_python_deps() {
     echo "[3/8] Installing Python dependencies..."
     
     echo "  Upgrading pip..."
-    python3 -m pip install --upgrade pip setuptools wheel 2>/dev/null || true
+    python3 -m pip install --upgrade pip setuptools wheel --quiet || \
+    python3 -m pip install --upgrade pip setuptools wheel || true
     
     if [ -f "requirements.txt" ]; then
         echo "  Installing from requirements.txt..."
-        python3 -m pip install -r requirements.txt 2>/dev/null || true
-        echo "  [OK] requirements.txt"
+        python3 -m pip install -r requirements.txt || {
+            echo "  requirements.txt failed, installing individually..."
+            while IFS= read -r line; do
+                [[ "$line" =~ ^# ]] && continue
+                [[ -z "$line" ]] && continue
+                echo "    Installing: $line"
+                python3 -m pip install "$line" || true
+            done < requirements.txt
+        }
     fi
     
-    echo "  Installing additional packages..."
+    echo "  Installing core packages..."
     
-    CORE_DEPS=(
-        numpy scipy requests beautifulsoup4 lxml
+    PACKAGES=(
+        numpy scipy requests beautifulsoup4 lxml html5lib
         sqlalchemy chromadb sentence-transformers
         transformers torch fastapi uvicorn
         jinja2 pyyaml cryptography pillow
-        opencv-python pyttsx3 SpeechRecognition gtts
-        flask flask-socketio psutil schedule
-        apscheduler watchdog python-dotenv pydantic
+        opencv-python opencv-contrib-python
+        flask flask-socketio flask-cors
+        psutil schedule apscheduler
+        watchdog python-dotenv pydantic
         aiohttp websockets httpx scrapy
         pandas matplotlib networkx scikit-learn
-        nltk spacy textblob openai anthropic
-        qrcode pytz rich click prompt-toolkit
-        colorama readline langchain huggingface-hub
-        faiss-cpu tqdm accelerate safetensors
+        nltk spacy textblob
+        openai anthropic
+        qrcode pytz rich click prompt-toolkit colorama
+        readline langchain huggingface-hub
+        faiss-cpu faiss-gpu tqdm accelerate safetensors
         tokenizers pyglet pyopengl trimesh moderngl
+        kivy buildozer python-for-android
+        pyttsx3 gtts
+        SpeechRecognition
     )
     
-    for dep in "${CORE_DEPS[@]}"; do
-        echo -n "    $dep... "
-        if python3 -m pip install "$dep" --quiet 2>/dev/null; then
+    FAILED=()
+    
+    for pkg in "${PACKAGES[@]}"; do
+        echo -n "    $pkg... "
+        if python3 -m pip install "$pkg" 2>/dev/null; then
             echo "OK"
         else
-            echo "SKIP"
+            echo "FAIL"
+            FAILED+=("$pkg")
         fi
     done
     
-    echo "  [OK] Python dependencies installed"
+    if [ ${#FAILED[@]} -gt 0 ]; then
+        echo ""
+        echo "  Failed packages: ${FAILED[*]}"
+        echo "  (These may require system dependencies or be optional)"
+    fi
+    
+    echo "  [OK] Python packages complete"
 }
 
 install_files() {
@@ -184,40 +161,32 @@ install_files() {
     BIN_DIR="$PREFIX/bin"
     mkdir -p "$BIN_DIR"
     
-    cat > "$BIN_DIR/neural-agent" << 'EOF'
+    cat > "$BIN_DIR/neural-agent" << 'NEOF'
 #!/bin/bash
-INSTALL_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../.."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="$(dirname "$SCRIPT_DIR")/../.."
 cd "$INSTALL_DIR"
 exec python3 neural_agent/cli.py "$@"
-EOF
-    
+NEOF
     chmod +x "$BIN_DIR/neural-agent"
     echo "  [OK] $BIN_DIR/neural-agent"
     
-    cat > "$BIN_DIR/linai" << 'EOF'
+    cat > "$BIN_DIR/linai" << 'LEOF'
 #!/bin/bash
-INSTALL_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../../.."
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="$(dirname "$SCRIPT_DIR")/../.."
 cd "$INSTALL_DIR"
 exec python3 linai.py "$@"
-EOF
-    
+LEOF
     chmod +x "$BIN_DIR/linai"
     echo "  [OK] $BIN_DIR/linai"
-    
-    echo "  All files installed:"
-    echo "    neural_agent/ (full package)"
-    echo "    linai.py"
-    echo "    install.py / install.sh"
-    echo "    requirements.txt"
-    echo "    docs/"
-    echo "    examples/"
 }
 
 configure() {
     echo "[5/8] Configuring..."
     
     if [ ! -f "config.json" ]; then
-        cat > config.json << 'EOF'
+        cat > config.json << 'CEOF'
 {
     "agent_name": "Neural Agent",
     "version": "1.0.0",
@@ -228,45 +197,22 @@ configure() {
     "simulation_enabled": true,
     "max_concurrent_tasks": 5,
     "log_level": "INFO",
-    "api": {
-        "host": "0.0.0.0",
-        "port": 8080,
-        "cors_enabled": true
-    },
-    "security": {
-        "require_auth": true,
-        "session_timeout": 3600
-    }
+    "api": {"host": "0.0.0.0", "port": 8080, "cors_enabled": true},
+    "security": {"require_auth": true, "session_timeout": 3600}
 }
-EOF
-        echo "  [OK] Created config.json"
-    fi
-    
-    if [ -f "$HOME/.bashrc" ] && ! grep -q "$MODEL_MARKER" "$HOME/.bashrc"; then
-        cat >> "$HOME/.bashrc" << EOF
-
-$MODEL_MARKER
-export NEURAL_AGENT_HOME="$INSTALL_DIR"
-export PYTHONPATH="$INSTALL_DIR:\$PYTHONPATH"
-alias neural-agent="$INSTALL_DIR/neural_agent/cli.py"
-alias linai="$INSTALL_DIR/linai.py"
-EOF
-        echo "  [OK] Added to .bashrc"
+CEOF
+        echo "  [OK] config.json created"
     fi
     
     echo "  [OK] Configuration complete"
 }
 
 install_apk_deps() {
-    echo "[6/8] Installing APK build dependencies (optional)..."
+    echo "[6/8] Installing APK build dependencies..."
     
-    for dep in kivy buildozer python-for-android; do
-        echo -n "  $dep... "
-        if python3 -m pip install "$dep" --quiet 2>/dev/null; then
-            echo "OK"
-        else
-            echo "SKIP"
-        fi
+    for pkg in kivy buildozer python-for-android; do
+        echo -n "  $pkg... "
+        python3 -m pip install "$pkg" 2>/dev/null && echo "OK" || echo "SKIP"
     done
     
     echo "  [OK] APK dependencies complete"
@@ -275,71 +221,36 @@ install_apk_deps() {
 install_sim_deps() {
     echo "[7/8] Installing simulation dependencies..."
     
-    for dep in pyglet pyopengl trimesh moderngl; do
-        echo -n "  $dep... "
-        if python3 -m pip install "$dep" --quiet 2>/dev/null; then
-            echo "OK"
-        else
-            echo "SKIP"
-        fi
+    for pkg in pyglet pyopengl trimesh moderngl moderngl-glew; do
+        echo -n "  $pkg... "
+        python3 -m pip install "$pkg" 2>/dev/null && echo "OK" || echo "SKIP"
     done
     
     echo "  [OK] Simulation dependencies complete"
 }
 
 finish() {
-    echo "[8/8] Finalizing..."
+    echo "[8/8] Complete!"
     
     echo ""
     echo "=========================================="
-    echo "  Neural Agent Installation Complete!"
+    echo "  Neural Agent Installed!"
     echo "=========================================="
     echo ""
-    echo "  Installation directory: $INSTALL_DIR"
-    echo "  Binary location: $PREFIX/bin/neural-agent"
+    echo "  Directory: $INSTALL_DIR"
+    echo "  Command: /usr/local/bin/neural-agent"
     echo ""
-    echo "Quick Start:"
-    echo "  neural-agent --help"
-    echo "  neural-agent user add admin password"
-    echo "  neural-agent start"
-    echo "  neural-agent --web"
-    echo "  linai"
-    echo ""
-    echo "Simulations:"
-    echo "  neural-agent sim create mysim 3d"
-    echo "  neural-agent sim render mysim"
-    echo ""
-    echo "APK Build:"
-    echo "  neural-agent apk all"
-    echo ""
-    echo "All Files Installed:"
-    echo "  neural_agent/ (entire package)"
-    echo "  linai.py"
-    echo "  install.py / install.sh"
-    echo "  requirements.txt"
-    echo "  docs/"
-    echo "  examples/"
+    echo "  Usage:"
+    echo "    neural-agent --help"
+    echo "    neural-agent user add admin password"
+    echo "    neural-agent start"
+    echo "    neural-agent --web"
+    echo "    linai"
     echo ""
     echo "=========================================="
-}
-
-uninstall() {
-    echo "Uninstalling Neural Agent..."
-    rm -rf "$INSTALL_DIR"
-    rm -f "$PREFIX/bin/neural-agent"
-    rm -f "$PREFIX/bin/linai"
-    sed -i "/$MODEL_MARKER/,/alias linai/d" "$HOME/.bashrc" 2>/dev/null || true
-    echo "Uninstalled!"
 }
 
 main() {
-    parse_args "$@"
-    
-    echo "=========================================="
-    echo "  Neural Agent Installer"
-    echo "=========================================="
-    echo ""
-    
     check_deps
     download_source
     install_python_deps
