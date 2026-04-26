@@ -2,6 +2,11 @@
 
 An advanced AI agent with persistent memory, autonomous thinking, task execution, and a kill switch.
 
+## Runs On
+```
+Linux • macOS • Windows • Android • iOS • Raspberry Pi • Termux • Any Unix
+```
+
 ## Install
 
 ```bash
